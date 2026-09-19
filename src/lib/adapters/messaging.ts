@@ -1,6 +1,8 @@
 import type { GeoPoint, OutboundNotice } from "../types";
 import { memoryStore } from "../store/memory";
 import { mapsUrl } from "../geo";
+import { Spectrum } from "spectrum-ts";
+import { imessage } from "spectrum-ts/providers/imessage";
 
 export interface NotifyInput {
   toName: string;
@@ -48,52 +50,44 @@ export const mockMessaging: MessagingAdapter = {
 
 // ---------------------------------------------------------------------------
 // Photon messaging — real iMessage path behind PHOTON_ENABLED=true.
-// Human: `npm i spectrum-ts` (preferred) or `@photon-ai/advanced-imessage`,
-// then fill PHOTON_* env vars from the https://photon.codes dashboard.
+// Credentials: SPECTRUM_PROJECT_ID + SPECTRUM_PROJECT_SECRET (dashboard Settings;
+// PHOTON_PROJECT_ID / PHOTON_PROJECT_SECRET accepted as aliases).
+// Uses cloud auto-discovery: no per-line tokens needed, tokens auto-renew.
 // ---------------------------------------------------------------------------
+
+function spectrumCreds(): { projectId: string; projectSecret: string } {
+  const projectId = process.env.SPECTRUM_PROJECT_ID ?? process.env.PHOTON_PROJECT_ID ?? "";
+  const projectSecret = process.env.SPECTRUM_PROJECT_SECRET ?? process.env.PHOTON_PROJECT_SECRET ?? "";
+  if (!projectId || !projectSecret) {
+    throw new Error("Photon credentials missing: set SPECTRUM_PROJECT_ID + SPECTRUM_PROJECT_SECRET (see dashboard Settings).");
+  }
+  return { projectId, projectSecret };
+}
+
+/** Shared Spectrum app (cloud iMessage, auto-discovered lines). */
+export async function spectrumApp() {
+  const { projectId, projectSecret } = spectrumCreds();
+  return Spectrum({
+    projectId,
+    projectSecret,
+    providers: [imessage.config()],
+  });
+}
+
 export const photonMessaging: MessagingAdapter = {
   mode: "live",
   async notifyContact(input: NotifyInput): Promise<OutboundNotice> {
     const body = withLocationLine(input.body, input.location);
-    const address = process.env.PHOTON_IMESSAGE_ADDRESS;
-    const token = process.env.PHOTON_IMESSAGE_TOKEN;
-    if (!address || !token) {
-      throw new Error("Photon env incomplete (need PHOTON_IMESSAGE_ADDRESS + PHOTON_IMESSAGE_TOKEN).");
-    }
-    // INTEGRATION: Photon send happens here.
-    // Preferred provider: spectrum-ts
+    // INTEGRATION: Photon send happens here (DM create + send).
+    const app = await spectrumApp();
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mod: any = await import(/* webpackIgnore: true */ "spectrum-ts").catch(() => null);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const prov: any = await import(/* webpackIgnore: true */ "spectrum-ts/providers/imessage").catch(() => null);
-      if (mod?.Spectrum && prov?.imessage) {
-        const spectrum = new mod.Spectrum({
-          projectId: process.env.PHOTON_PROJECT_ID,
-          projectSecret: process.env.PHOTON_PROJECT_SECRET,
-        });
-        const provider = prov.imessage({ address, token });
-        await spectrum.send(provider, { to: input.toPhone, text: body });
-        return { id: uid("imsg"), toName: input.toName, toPhone: input.toPhone, body, channel: "imessage", status: "sent", at: new Date().toISOString() };
-      }
-    } catch (e) {
-      console.warn("[haven] spectrum-ts path failed, trying fallback:", e);
+      const im = imessage(app);
+      const user = await im.user(input.toPhone);
+      const dm = await im.space.create(user);
+      await dm.send(body);
+      return { id: uid("imsg"), toName: input.toName, toPhone: input.toPhone, body, channel: "imessage", status: "sent", at: new Date().toISOString() };
+    } finally {
+      await app.stop().catch(() => {});
     }
-    // Fallback provider: @photon-ai/advanced-imessage
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const clientMod: any = await import(/* webpackIgnore: true */ "@photon-ai/advanced-imessage").catch(() => null);
-      if (clientMod?.createClient) {
-        const client = clientMod.createClient({ address, token });
-        const chat = await client.chats.create([input.toPhone]);
-        await client.messages.sendText(chat.guid, body);
-        return { id: uid("imsg"), toName: input.toName, toPhone: input.toPhone, body, channel: "imessage", status: "sent", at: new Date().toISOString() };
-      }
-    } catch (e) {
-      console.warn("[haven] advanced-imessage path failed:", e);
-    }
-    throw new Error(
-      "Photon send unavailable: install `spectrum-ts` or `@photon-ai/advanced-imessage` and set PHOTON_* env vars. See comments in src/lib/adapters/messaging.ts."
-    );
   },
 };
