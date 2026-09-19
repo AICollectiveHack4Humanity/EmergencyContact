@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Newsreader", "Source Serif 4", Georgia, serif;
+  --color-cream: #f7f2e9;
+  --color-cream-dark: #efe7d6;
+  --color-charcoal: #17181c;
+  --color-charcoal-soft: #22242b;
+  --color-champagne: #d6c08a;
+  --color-champagne-dim: #a8945f;
+  --color-sage: #9db29a;
+  --color-sage-dim: #6f8471;
+}
+
+html, body {
+  min-height: 100%;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.fade-in {
+  animation: haven-fade 0.6s ease both;
+}
+
+@keyframes haven-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
