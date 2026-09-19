@@ -15,7 +15,8 @@ npm i
 npm run dev
 ```
 
-Open haven-eight-sigma.vercel.app — it opens the session dashboard directly: `/session`
+**[Try Haven](https://haven-eight-sigma.vercel.app)**
+ it opens the session dashboard directly: `/session`
 (crisis chat), `/brief/demo` (responder case file), `/settings` (contacts, adapters,
 mock outbox, **Run judge demo**). Demo PIN is `2580`.
 
