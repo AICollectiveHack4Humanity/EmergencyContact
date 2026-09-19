@@ -42,29 +42,35 @@ export function LiveFeed({
   onIncident: (incident: Incident) => void;
   onNotice: (msg: string) => void;
 }) {
+  // One persistent video element: the stream stays attached across renders.
+  // (A previous version mounted a second <video> when going live, which dropped
+  // srcObject and rendered a black preview.)
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const intervalRef = useRef(FRAME_MS);
+  const frameRef = useRef(0);
   const pendingSpeechRef = useRef("");
   const busyRef = useRef(false);
   const stoppedRef = useRef(false);
 
   const [active, setActive] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [frames, setFrames] = useState(0);
   const [facts, setFacts] = useState(0);
   const [heard, setHeard] = useState("");
   const [captionsLive, setCaptionsLive] = useState(false);
   const [slowed, setSlowed] = useState(false);
+  const [lastAnalyzedAt, setLastAnalyzedAt] = useState<string | null>(null);
 
   const analyzeFrame = useCallback(async () => {
     if (stoppedRef.current || busyRef.current || document.hidden) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || video.videoWidth === 0) return;
+    if (!video || !canvas || video.videoWidth === 0 || video.readyState < 2) return;
     busyRef.current = true;
     try {
       const scale = 480 / video.videoWidth;
@@ -76,10 +82,16 @@ export function LiveFeed({
       const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
       const transcript = pendingSpeechRef.current.trim();
       pendingSpeechRef.current = "";
+      frameRef.current += 1;
       const res = await fetch("/api/session/live-frame", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ incidentId, imageDataUrl: dataUrl, transcript: transcript || undefined }),
+        body: JSON.stringify({
+          incidentId,
+          imageDataUrl: dataUrl,
+          transcript: transcript || undefined,
+          frame: frameRef.current,
+        }),
       });
       if (res.status === 429) {
         // Free-tier quota: slow the loop instead of dying.
@@ -97,6 +109,7 @@ export function LiveFeed({
       const j = (await res.json()) as LiveFrameResponse;
       onIncident(j.incident);
       setFrames((n) => n + 1);
+      setLastAnalyzedAt(new Date().toLocaleTimeString());
       if (j.newObservations > 0) {
         setFacts((n) => n + j.newObservations);
         onNotice(`Live feed: +${j.newObservations} new fact${j.newObservations > 1 ? "s" : ""} logged.`);
@@ -129,6 +142,9 @@ export function LiveFeed({
     recognitionRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    frameRef.current = 0;
+    setCameraReady(false);
     setActive(false);
   }, []);
 
@@ -145,13 +161,21 @@ export function LiveFeed({
         video: { facingMode: "environment", width: { ideal: 640 } },
         audio: true,
       });
+      const track = stream.getVideoTracks()[0];
+      if (!track) throw new Error("no video track");
       streamRef.current = stream;
       stoppedRef.current = false;
       intervalRef.current = FRAME_MS;
+      frameRef.current = 0;
       setSlowed(false);
       const video = videoRef.current;
-      if (video) {
-        video.srcObject = stream;
+      if (!video) throw new Error("preview unavailable");
+      video.srcObject = stream;
+      try {
+        await video.play();
+      } catch {
+        /* autoplay needs a gesture; start() is one, retry once visible */
+        await new Promise((r) => setTimeout(r, 300));
         await video.play().catch(() => {});
       }
       // Live captions via Web Speech API (Chrome/Edge). Absent on iOS Safari:
@@ -190,48 +214,74 @@ export function LiveFeed({
       setActive(true);
       restartTimer();
     } catch {
-      setError("Camera blocked. Allow camera access, or upload a photo instead.");
+      setError("Camera blocked or unavailable. Allow camera access, or upload a photo instead.");
     }
   }, [restartTimer]);
 
-  // video + canvas stay mounted (hidden) so refs exist when start() runs.
   return (
     <div>
-      {!active ? (
-        <div>
-          <button
-            onClick={start}
-            className="flex min-h-[48px] items-center gap-2 rounded-full bg-stone-900 px-5 text-sm font-semibold text-white"
-          >
-            <CameraIcon className="h-5 w-5" />
-            Start live camera
-          </button>
-          {error && <p className="mt-2 text-sm text-red-700" role="alert">{error}</p>}
-        </div>
-      ) : (
-        <div className="flex items-start gap-4">
-          <div className="relative w-36 shrink-0 overflow-hidden rounded-xl border border-stone-300 bg-stone-900 sm:w-44">
-            <video ref={videoRef} muted playsInline className="aspect-[3/4] w-full object-cover" aria-label="Live camera preview" />
+      <div className="flex items-start gap-4">
+        <div className="relative w-36 shrink-0 overflow-hidden rounded-xl border border-stone-300 bg-stone-900 sm:w-44">
+          {/* Single persistent preview: hidden until the stream renders. */}
+          <video
+            ref={videoRef}
+            muted
+            playsInline
+            onLoadedMetadata={(e) => {
+              e.currentTarget.play().catch(() => {});
+            }}
+            onCanPlay={() => setCameraReady(true)}
+            className={active ? "aspect-[3/4] w-full object-cover" : "hidden"}
+            aria-label="Live camera preview"
+          />
+          {!cameraReady && (
+            <div className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-2 p-3 text-center">
+              <CameraIcon className="h-6 w-6 text-stone-500" />
+              <p className="text-xs text-stone-400">{active ? "Starting camera…" : "Camera off"}</p>
+            </div>
+          )}
+          {active && cameraReady && (
             <span className="absolute left-2 top-2 flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-white">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" aria-hidden /> LIVE
             </span>
-          </div>
-          <div className="min-w-0 flex-1 text-sm">
-            <p className="font-medium tabular-nums text-stone-900">
-              Frame {frames} · +{facts} facts{slowed && <span className="text-amber-800"> · slowed (quota)</span>}
-            </p>
-            <p className="mt-1 text-[13px] text-stone-600">
-              {captionsLive ? "Listening and watching — facts populate the case live." : "Watching — live captions unavailable in this browser."}
-            </p>
-            {heard && <p className="mt-1.5 line-clamp-2 text-[13px] text-stone-600">Heard: “{heard}”</p>}
-            <button onClick={stop} className="mt-2 min-h-[44px] rounded-full border border-stone-300 px-4 text-sm font-medium text-stone-800">
-              Stop camera
-            </button>
-          </div>
+          )}
         </div>
-      )}
-      {/* Mounted always (hidden when idle) so start() can attach the stream. */}
-      {!active && <video ref={videoRef} muted playsInline className="hidden" aria-hidden />}
+        <div className="min-w-0 flex-1 text-sm">
+          {!active ? (
+            <div>
+              <button
+                onClick={start}
+                className="flex min-h-[48px] items-center gap-2 rounded-full bg-stone-900 px-5 text-sm font-semibold text-white"
+              >
+                <CameraIcon className="h-5 w-5" />
+                Start live camera
+              </button>
+              <p className="mt-2 text-[13px] text-stone-600">
+                Frames and heard speech update the case file every second.
+              </p>
+              {error && <p className="mt-2 text-sm text-red-700" role="alert">{error}</p>}
+            </div>
+          ) : (
+            <div>
+              <p className="font-medium tabular-nums text-stone-900">
+                Frame {frames} · +{facts} facts{slowed && <span className="text-amber-800"> · slowed (quota)</span>}
+              </p>
+              <p className="mt-1 text-[13px] text-stone-600">
+                {captionsLive
+                  ? "Listening and watching — suspect and victim details land below as seen."
+                  : "Watching — live captions unavailable in this browser."}
+              </p>
+              {heard && <p className="mt-1.5 line-clamp-2 text-[13px] text-stone-600">Heard: “{heard}”</p>}
+              {lastAnalyzedAt && (
+                <p className="mt-1 text-xs tabular-nums text-stone-500">Last analyzed {lastAnalyzedAt}</p>
+              )}
+              <button onClick={stop} className="mt-2 min-h-[44px] rounded-full border border-stone-300 px-4 text-sm font-medium text-stone-800">
+                Stop camera
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
       <canvas ref={canvasRef} className="hidden" aria-hidden />
     </div>
   );

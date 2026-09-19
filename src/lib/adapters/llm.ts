@@ -12,6 +12,9 @@ export interface ClassifyInput {
   userText?: string;
   imageDataUrl?: string;
   location?: GeoPoint;
+  /** Live camera tick: judge the frame against what is already known. */
+  live?: boolean;
+  frame?: number;
 }
 
 export interface ClassifyResult {
@@ -143,6 +146,20 @@ export const mockLlm: LlmAdapter = {
     if (observations.some((o) => o.aboutRole === "aggressor") && !people.some((p) => p.role === "aggressor")) {
       people.push({ name: "Unknown adult male", role: "aggressor", notes: "Linked from a clothing description; identity unknown." });
     }
+    // Threats and important phrases (heard speech in live mode, typed quotes otherwise).
+    const threatWords = ["kill", "die", "dead", "gun", "knife", "shoot", "stab", "hurt you", "shut up", "don't move", "dont move", "don't scream", "dont scream", "i'll find you", "ill find you"];
+    for (const w of threatWords) {
+      if (text.includes(w)) {
+        observations.push({
+          kind: "quote",
+          text: `Heard threat: "${(input.userText ?? "").trim().slice(0, 140)}"`,
+          confidence: 0.8,
+          source: input.live ? "audio" : "text",
+          aboutRole: personCue && !selfCue ? "aggressor" : undefined,
+        });
+        break; // one threat quote per message; dedupe keeps repeats free
+      }
+    }
     if (text.includes("car ") || text.includes("van ") || text.includes("license") || text.includes("plate")) {
       observations.push({ kind: "vehicle", text: input.userText?.slice(0, 140) ?? "Vehicle mentioned.", confidence: 0.6, source: "text" });
     }
@@ -242,6 +259,7 @@ export function sanitizeLlmError(e: unknown): string {
     .replace(/key=[^&\s]+/gi, "key=[redacted]")
     .slice(0, 300);
 }
+const LIVE_PROMPT = `This is a LIVE camera frame, one per second. Compare against the incident snapshot and report ONLY new or changed facts — silence (no observations) is correct when nothing changed. Prioritize: (1) suspect description updates (clothing, appearance, actions — aboutRole "aggressor"); (2) victim condition updates (injuries, distress — aboutRole "user"); (3) important phrases or threats heard, quoted verbatim as kind "quote" (threats from another individual: aboutRole "aggressor"); (4) weapons, vehicles, sounds. Never repeat a fact already in the snapshot as a new observation.`;
 const SYSTEM_PROMPT = `You are Haven, a silent crisis intake agent. Classify into silent_safety | mental_health | medical | followed | general with urgency low|medium|high|critical.
 Rules: silent_safety + cannot speak -> replies <=12 words, never say police were called, never auto-911. mental_health -> attach 988, stay present, do not notify police/contacts unless asked. Never invent evidence: unknown fields stay "unknown". Attribution: every clothing/injury observation must carry aboutRole — "aggressor" for descriptions of another individual (he/him/his/man/guy/wearing/wore), "user" for self-descriptions (I/my/me/mine). In silent_safety/followed cases, unattributed clothing of another person defaults to "aggressor", never the user. Omit aboutRole only when truly unknowable. Always return STRICT JSON with keys: type, urgency, speakFreely, summary, observations[{kind,text,confidence,source,aboutRole}], people[{name,role,notes}], reply, suggestedActions[].`;
 
@@ -275,8 +293,18 @@ export const geminiLlm: LlmAdapter = {
     if (!key) return mockLlm.classifyAndExtract(input);
     // NOTE: errors propagate on purpose — the API route catches them, falls back
     // to mock, and surfaces the reason to the UI (llmError) for debugging.
-      // INTEGRATION: Gemini generateContent lives here. Model id comes from GEMINI_MODEL.
-    const parts: Record<string, unknown>[] = [{ text: `${SYSTEM_PROMPT}\n\nIncident so far: ${JSON.stringify({ type: input.incident.type, urgency: input.incident.urgency, speakFreely: input.incident.speakFreely, summary: input.incident.summary })}\nUser text: ${input.userText ?? "(none)"}\nLocation: ${input.location ? JSON.stringify(input.location) : "unknown"}` }];
+    // INTEGRATION: Gemini generateContent lives here. Model id comes from GEMINI_MODEL.
+    const snapshot = JSON.stringify({
+      type: input.incident.type,
+      urgency: input.incident.urgency,
+      speakFreely: input.incident.speakFreely,
+      summary: input.incident.summary,
+      knownPeople: input.incident.people.map((p) => `${p.name} (${p.role})`),
+      knownFacts: input.incident.observations.map((o) => `[${o.kind}] ${o.text}`),
+    });
+    const frameLine = input.live ? `\nLive frame #${input.frame ?? "?"} at ${new Date().toISOString()}.` : "";
+    const liveBlock = input.live ? `\n\n${LIVE_PROMPT}` : "";
+    const parts: Record<string, unknown>[] = [{ text: `${SYSTEM_PROMPT}${liveBlock}\n\nIncident so far: ${snapshot}\nUser text: ${input.userText ?? "(none)"}\nLocation: ${input.location ? JSON.stringify(input.location) : "unknown"}${frameLine}` }];
     if (input.imageDataUrl) {
       const m = input.imageDataUrl.match(/^data:(.*?);base64,(.*)$/);
       if (m) parts.push({ inlineData: { mimeType: m[1], data: m[2] } });

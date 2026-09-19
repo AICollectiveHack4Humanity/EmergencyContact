@@ -9,6 +9,7 @@ const LiveFrameSchema = z.object({
   incidentId: z.string(),
   imageDataUrl: z.string().min(32).max(8_000_000),
   transcript: z.string().max(2000).optional(),
+  frame: z.number().int().positive().optional(),
   location: z.object({ lat: z.number(), lng: z.number(), label: z.string().optional() }).optional(),
 });
 
@@ -48,6 +49,8 @@ export async function POST(req: Request) {
       imageDataUrl: parsed.data.imageDataUrl,
       userText: parsed.data.transcript?.trim() || undefined,
       location: parsed.data.location ? { ...parsed.data.location, at: now } : undefined,
+      live: true,
+      frame: parsed.data.frame,
     });
   } catch (e) {
     const llmError = sanitizeLlmError(e);
