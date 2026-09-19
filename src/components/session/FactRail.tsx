@@ -20,6 +20,19 @@ export function FactRail({ incident }: { incident: Incident }) {
   const people = incident.people.filter((p) => p.role !== "contact");
   const loc = incident.locations[incident.locations.length - 1];
 
+  const personOf = (aboutPersonId?: string) =>
+    incident.people.find((p) => p.id === aboutPersonId || p.name === aboutPersonId);
+  const isPerpetrator = (aboutPersonId?: string) => personOf(aboutPersonId)?.role === "aggressor";
+  const perpClothing = clothing.filter((o) => isPerpetrator(o.aboutPersonId));
+  const otherClothing = clothing.filter((o) => !isPerpetrator(o.aboutPersonId));
+  const labelFor = (aboutPersonId?: string) => {
+    const p = personOf(aboutPersonId);
+    if (!p) return null;
+    if (p.role === "aggressor") return ` — ${p.name} (perpetrator)`;
+    if (p.role === "user") return " — you";
+    return ` — ${p.name}`;
+  };
+
   return (
     <div className="space-y-5 p-4 text-sm">
       <div>
@@ -41,9 +54,20 @@ export function FactRail({ incident }: { incident: Incident }) {
         ))}
       </div>
       <div>
-        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-stone-500">Clothing</h3>
-        {clothing.length === 0 ? <p className="text-stone-500">Unknown</p> : clothing.map((o) => <p key={o.id} className="py-0.5 text-stone-200">{o.text}</p>)}
+        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-stone-500">Perpetrator clothing</h3>
+        {perpClothing.length === 0 ? <p className="text-stone-500">Unknown</p> : perpClothing.map((o) => <p key={o.id} className="py-0.5 text-stone-200">{o.text}</p>)}
       </div>
+      {otherClothing.length > 0 && (
+        <div>
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-stone-500">Other clothing sightings</h3>
+          {otherClothing.map((o) => (
+            <p key={o.id} className="py-0.5 text-stone-200">
+              {o.text}
+              {labelFor(o.aboutPersonId) && <span className="text-stone-500">{labelFor(o.aboutPersonId)}</span>}
+            </p>
+          ))}
+        </div>
+      )}
       <div>
         <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-stone-500">Injuries</h3>
         {injuries.length === 0 ? <p className="text-stone-500">Unknown</p> : injuries.map((o) => <p key={o.id} className="py-0.5 text-stone-200">{o.text}</p>)}

@@ -19,7 +19,7 @@ export interface ClassifyResult {
   urgency: Urgency;
   speakFreely: boolean;
   summary: string;
-  observations: Omit<Observation, "id" | "at">[];
+  observations: (Omit<Observation, "id" | "at"> & { aboutRole?: "user" | "aggressor" })[];
   people: Partial<Person>[];
   reply: string;
   suggestedActions: string[];
@@ -106,20 +106,42 @@ export const mockLlm: LlmAdapter = {
     }
 
     // Keyword extraction: clothing / injury / person / vehicle.
-    const clothingWords = ["hoodie", "jacket", "tattoo", "cap", "beanie", "mask", "jeans", "red shirt", "blue shirt", "uniform"];
+    // Attribution matters: perpetrator clothing must link to the aggressor, not the victim.
+    const personCue = /\b(he|him|his|man|guy|male|dude|wearing|wore|dressed)\b/.test(text);
+    const selfCue = /\b(i'm|i am|my|me|mine)\b/.test(text);
+    const otherPersonContext = personCue || type === "silent_safety" || type === "followed";
+    const clothingWords = ["hoodie", "jacket", "tattoo", "cap", "beanie", "mask", "jeans", "red shirt", "blue shirt", "uniform", "backpack"];
     for (const w of clothingWords) {
       if (text.includes(w)) {
-        observations.push({ kind: "clothing", text: `Mentions "${w}"`, confidence: 0.7, source: "text" });
+        observations.push({
+          kind: "clothing",
+          text: `Mentions "${w}"`,
+          confidence: 0.7,
+          source: "text",
+          // Self-descriptions ("I'm wearing…", "my jacket") belong to the user;
+          // anything describing another individual belongs to the aggressor.
+          aboutRole: selfCue && !personCue ? "user" : otherPersonContext ? "aggressor" : undefined,
+        });
       }
     }
-    const injuryWords = ["cheek", "bleeding", "swelling", "bruise", "cut", "hurt", "pain", "swollen"];
+    const injuryWords = ["cheek", "bleeding", "swelling", "bruise", "cut", "hurt", "pain", "swollen", "lip", "split"];
     for (const w of injuryWords) {
       if (text.includes(w)) {
-        observations.push({ kind: "injury", text: `Possible injury: mentions "${w}"`, confidence: 0.75, source: "text" });
+        observations.push({
+          kind: "injury",
+          text: `Possible injury: mentions "${w}"`,
+          confidence: 0.75,
+          source: "text",
+          aboutRole: personCue && !selfCue ? "aggressor" : "user",
+        });
       }
     }
     if (text.includes("he ") || text.includes("him") || text.includes("man ")) {
       people.push({ name: "Unknown adult male", role: "aggressor", notes: "Described in chat; identity unknown." });
+    }
+    // Clothing attributed to an aggressor needs the aggressor to exist for linking.
+    if (observations.some((o) => o.aboutRole === "aggressor") && !people.some((p) => p.role === "aggressor")) {
+      people.push({ name: "Unknown adult male", role: "aggressor", notes: "Linked from a clothing description; identity unknown." });
     }
     if (text.includes("car ") || text.includes("van ") || text.includes("license") || text.includes("plate")) {
       observations.push({ kind: "vehicle", text: input.userText?.slice(0, 140) ?? "Vehicle mentioned.", confidence: 0.6, source: "text" });
@@ -131,7 +153,11 @@ export const mockLlm: LlmAdapter = {
         text: "dark hoodie visible in photo (demo extract)",
         confidence: 0.65,
         source: "image",
+        aboutRole: type === "silent_safety" || type === "followed" ? "aggressor" : undefined,
       });
+      if ((type === "silent_safety" || type === "followed") && !people.some((p) => p.role === "aggressor")) {
+        people.push({ name: "Unknown adult male", role: "aggressor", notes: "Seen in shared photo; identity unknown." });
+      }
     }
     if (input.location?.label) {
       observations.push({
@@ -203,9 +229,10 @@ export const mockLlm: LlmAdapter = {
 // Human: npm i @google/genai, set GEMINI_API_KEY, keep mock as fallback.
 // ---------------------------------------------------------------------------
 
-// Free-tier default (vision-capable). Override with GEMINI_MODEL=... if AI Studio
-// lists a newer free Flash id (e.g. gemini-2.5-flash-lite).
-export const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-3.6-flash";
+// Free-tier default (vision-capable). This is Google's rolling Flash alias, so it
+// keeps working when versioned models retire (e.g. 2.5-flash did). Override with
+// GEMINI_MODEL=... to pin a versioned id (e.g. gemini-3.6-flash, gemini-3.5-flash-lite).
+export const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-flash-latest";
 
 /** Strip anything key-like before an error message ever reaches the client. */
 export function sanitizeLlmError(e: unknown): string {
@@ -216,7 +243,7 @@ export function sanitizeLlmError(e: unknown): string {
     .slice(0, 300);
 }
 const SYSTEM_PROMPT = `You are Haven, a silent crisis intake agent. Classify into silent_safety | mental_health | medical | followed | general with urgency low|medium|high|critical.
-Rules: silent_safety + cannot speak -> replies <=12 words, never say police were called, never auto-911. mental_health -> attach 988, stay present, do not notify police/contacts unless asked. Never invent evidence: unknown fields stay "unknown". Always return STRICT JSON with keys: type, urgency, speakFreely, summary, observations[{kind,text,confidence,source}], people[{name,role,notes}], reply, suggestedActions[].`;
+Rules: silent_safety + cannot speak -> replies <=12 words, never say police were called, never auto-911. mental_health -> attach 988, stay present, do not notify police/contacts unless asked. Never invent evidence: unknown fields stay "unknown". Attribution: every clothing/injury observation must carry aboutRole — "aggressor" for descriptions of another individual (he/him/his/man/guy/wearing/wore), "user" for self-descriptions (I/my/me/mine). In silent_safety/followed cases, unattributed clothing of another person defaults to "aggressor", never the user. Omit aboutRole only when truly unknowable. Always return STRICT JSON with keys: type, urgency, speakFreely, summary, observations[{kind,text,confidence,source,aboutRole}], people[{name,role,notes}], reply, suggestedActions[].`;
 
 function tryParseStrictJson(text: string): ClassifyResult | null {
   try {
@@ -254,26 +281,35 @@ export const geminiLlm: LlmAdapter = {
       const m = input.imageDataUrl.match(/^data:(.*?);base64,(.*)$/);
       if (m) parts.push({ inlineData: { mimeType: m[1], data: m[2] } });
     }
-    let res: Response;
-    try {
-      res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(key)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts }],
-            generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
-          }),
-        }
-      );
-    } catch (e) {
-      throw new Error(`Gemini ${GEMINI_MODEL}: network error (${e instanceof Error ? e.message : "fetch failed"}). Check connection / hotspot.`);
+    let res: Response | null = null;
+    let lastError = "";
+    // Two attempts: free-tier Flash capacity flaps (transient 429/503s).
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(key)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts }],
+              generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
+            }),
+          }
+        );
+      } catch (e) {
+        throw new Error(`Gemini ${GEMINI_MODEL}: network error (${e instanceof Error ? e.message : "fetch failed"}). Check connection / hotspot.`);
+      }
+      if (res.ok) break;
+      lastError = (await res.text().catch(() => "")).slice(0, 200);
+      const retryable = res.status === 429 || res.status === 503;
+      if (!retryable || attempt === 1) {
+        throw new Error(`Gemini ${GEMINI_MODEL}: HTTP ${res.status} ${lastError}`);
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+      res = null;
     }
-    if (!res.ok) {
-      const detail = (await res.text().catch(() => "")).slice(0, 200);
-      throw new Error(`Gemini ${GEMINI_MODEL}: HTTP ${res.status} ${detail}`);
-    }
+    if (!res || !res.ok) throw new Error(`Gemini ${GEMINI_MODEL}: HTTP failed ${lastError}`);
     const json = (await res.json()) as {
       candidates?: { content?: { parts?: { text?: string }[] } }[];
     };

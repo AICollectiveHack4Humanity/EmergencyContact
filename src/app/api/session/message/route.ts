@@ -3,17 +3,13 @@ import { z } from "zod";
 import { graph, llm } from "@/lib/adapters";
 import { memoryStore } from "@/lib/store/memory";
 import { shapeReplyForPolicy } from "@/lib/policy";
-import type { Observation } from "@/lib/types";
+import { mergeClassifyResult } from "@/lib/merge";
 
 const MsgSchema = z.object({
   incidentId: z.string(),
   text: z.string().min(1).max(2000),
   location: z.object({ lat: z.number(), lng: z.number(), label: z.string().optional() }).optional(),
 });
-
-function normalize(s: string): string {
-  return s.toLowerCase().trim().replace(/\s+/g, " ");
-}
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
@@ -51,29 +47,8 @@ export async function POST(req: Request) {
     llmError = null;
   }
 
-  // Merge classification.
-  incident.type = result.type;
-  incident.urgency = result.urgency;
-  incident.speakFreely = result.speakFreely;
-  incident.summary = result.summary || incident.summary;
-
-  // Merge observations, dedupe by kind + normalized text.
-  const seen = new Set(incident.observations.map((o) => `${o.kind}::${normalize(o.text)}`));
-  for (const o of result.observations) {
-    const key = `${o.kind}::${normalize(o.text)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const full: Observation = { ...o, id: `o_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e4)}`, at: now };
-    incident.observations.push(full);
-  }
-  // Merge people (by name+role).
-  for (const p of result.people) {
-    if (!p.name) continue;
-    const exists = incident.people.some((x) => x.name === p.name && (p.role ? x.role === p.role : true));
-    if (!exists) {
-      incident.people.push({ id: `p_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e4)}`, name: p.name, role: p.role ?? "witness", phone: p.phone, notes: p.notes ?? "Extracted from chat; verify." });
-    }
-  }
+  // Merge classification (people first so observations link to person ids).
+  const { addedObservations } = mergeClassifyResult(incident, result, now);
 
   const reply = shapeReplyForPolicy(incident, result.reply);
   incident.messages.push({ id: `m_${Date.now().toString(36)}_h`, role: "haven", text: reply, at: now, silent: !incident.speakFreely });
@@ -81,5 +56,5 @@ export async function POST(req: Request) {
   memoryStore.save(incident);
   await graph.upsertIncident(incident);
 
-  return NextResponse.json({ incident, reply, llmFallback: usedFallback, llmError, suggestedActions: result.suggestedActions });
+  return NextResponse.json({ incident, reply, llmFallback: usedFallback, llmError, newObservations: addedObservations, suggestedActions: result.suggestedActions });
 }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { graph, llm } from "@/lib/adapters";
 import { memoryStore } from "@/lib/store/memory";
-import type { Observation } from "@/lib/types";
+import { mergeClassifyResult } from "@/lib/merge";
 
 const ImgSchema = z.object({
   incidentId: z.string(),
@@ -34,17 +34,7 @@ export async function POST(req: Request) {
     if (llmError) console.warn("[haven] Gemini vision failed, fell back to mock:", llmError);
   }
 
-  incident.type = result.type;
-  incident.urgency = result.urgency;
-  incident.summary = result.summary || incident.summary;
-  const seen = new Set(incident.observations.map((o) => `${o.kind}::${o.text.toLowerCase()}`));
-  for (const o of result.observations) {
-    const key = `${o.kind}::${o.text.toLowerCase()}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const full: Observation = { ...o, id: `o_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e4)}`, at: now };
-    incident.observations.push(full);
-  }
+  mergeClassifyResult(incident, result, now);
   incident.messages.push({ id: `m_${Date.now().toString(36)}_h`, role: "haven", text: result.reply, at: now, silent: !incident.speakFreely });
 
   memoryStore.save(incident);

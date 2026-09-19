@@ -5,6 +5,19 @@ function obsOf(incident: Incident, kind: string): string[] {
   return incident.observations.filter((o) => o.kind === kind).map((o) => o.text);
 }
 
+/** Clothing/injury lines annotated with who they describe (perpetrator vs user). */
+function attributedObs(incident: Incident, kind: string): string[] {
+  return incident.observations
+    .filter((o) => o.kind === kind)
+    .map((o) => {
+      const p = incident.people.find((x) => x.id === o.aboutPersonId || x.name === o.aboutPersonId);
+      if (!p) return o.text;
+      if (p.role === "aggressor") return `${o.text} (perpetrator: ${p.name})`;
+      if (p.role === "user") return `${o.text} (user)`;
+      return `${o.text} (${p.name})`;
+    });
+}
+
 function firstOrUnknown(list: string[]): string {
   return list.length > 0 ? list.join("; ") : "Unknown";
 }
@@ -20,8 +33,8 @@ export function formatBriefPacket(incident: Incident): {
 } {
   const who = incident.user?.name ?? "Unknown";
   const whereLast = lastLocationLabel(incident.locations);
-  const injuries = firstOrUnknown(obsOf(incident, "injury"));
-  const clothing = firstOrUnknown(obsOf(incident, "clothing"));
+  const injuries = firstOrUnknown(attributedObs(incident, "injury"));
+  const clothing = firstOrUnknown(attributedObs(incident, "clothing"));
   const notified =
     incident.notices.length > 0
       ? incident.notices.map((n) => `${n.toName} (${n.status})`).join(", ")

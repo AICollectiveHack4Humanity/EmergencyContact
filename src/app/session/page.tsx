@@ -7,6 +7,7 @@ import { Transcript } from "@/components/session/Transcript";
 import { Composer } from "@/components/session/Composer";
 import { FactRail } from "@/components/session/FactRail";
 import { ActionBar } from "@/components/session/ActionBar";
+import { LiveFeed } from "@/components/session/LiveFeed";
 import { StealthToggle } from "@/components/session/StealthToggle";
 import { StatusPill } from "@/components/shared/StatusPill";
 import { MapPin } from "@/components/shared/MapPin";
@@ -24,6 +25,7 @@ export default function SessionPage() {
   const [stealth, setStealth] = useState(false);
   const [coverNote, setCoverNote] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [liveOpen, setLiveOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [script, setScript] = useState<string | null>(null);
 
@@ -227,6 +229,14 @@ export default function SessionPage() {
             <StatusPill urgency={incident.urgency} status={incident.status} />
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setLiveOpen((v) => !v)}
+              aria-pressed={liveOpen}
+              title="Live camera: one analyzed frame per second + live captions"
+              className={liveOpen ? "min-h-[44px] rounded-full bg-[#d6c08a] px-4 text-sm font-semibold text-[#17181c]" : "min-h-[44px] rounded-full border border-[#d6c08a]/50 px-4 text-sm text-[#d6c08a]"}
+            >
+              ● Live
+            </button>
             <StealthToggle stealth={stealth} onToggle={() => setStealth(true)} />
             <a href="/settings" aria-label="Settings" className="min-h-[44px] min-w-[44px] rounded-full border border-white/15 px-3 py-2 text-center text-sm text-stone-300">⚙</a>
           </div>
@@ -240,6 +250,11 @@ export default function SessionPage() {
       {/* Split: transcript + fact rail */}
       <div className="mx-auto flex w-full max-w-5xl flex-1 gap-0">
         <main className="flex min-h-0 flex-1 flex-col">
+          {liveOpen && (
+            <div className="border-b border-white/10 px-4 py-3">
+              <LiveFeed incidentId={incident.id} onIncident={setIncident} onNotice={showToast} />
+            </div>
+          )}
           <div className="max-h-[55dvh] flex-1 overflow-y-auto md:max-h-none">
             <Transcript messages={incident.messages} />
           </div>
