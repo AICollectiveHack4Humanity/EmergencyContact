@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { GeoPoint, Incident } from "@/lib/types";
 import { Transcript } from "@/components/session/Transcript";
 import { Composer } from "@/components/session/Composer";
@@ -17,7 +16,6 @@ import { lastLocationLabel } from "@/lib/geo";
 const DEFAULT_PIN: GeoPoint = { lat: 37.7897, lng: -122.3972, label: "SoMa, San Francisco", at: new Date().toISOString() };
 
 export default function SessionPage() {
-  const router = useRouter();
   const [incident, setIncident] = useState<Incident | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -193,7 +191,7 @@ export default function SessionPage() {
   return (
     <div className="fade-in flex min-h-dvh flex-col bg-stone-100 text-stone-900">
       <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div className="flex items-center gap-3">
             <span className="font-serif text-xl tracking-tight text-amber-900">Haven</span>
             <StatusPill urgency={incident.urgency} status={incident.status} />
@@ -215,14 +213,16 @@ export default function SessionPage() {
         <div className="mx-auto max-w-5xl px-4 pb-2">
           <MapPin label={`Last location · ${lastLocationLabel(incident.locations)}`} />
         </div>
-        <ActionBar onNotify={notify} onSafe={markSafe} onBrief={() => router.push(`/brief/${incident.id}`)} onScript={draftScript} notifying={notifying} />
+        <div className="hidden md:block">
+          <ActionBar onNotify={notify} onSafe={markSafe} onScript={draftScript} notifying={notifying} />
+        </div>
       </header>
 
       <section aria-label="Live camera" id="live-camera" className="border-b border-stone-200 bg-white scroll-mt-32">
         <div className="mx-auto max-w-5xl px-4 py-4">
           <h2 className="text-lg font-semibold text-stone-900">Live camera</h2>
           <p className="mt-0.5 text-sm text-stone-600">
-            One analyzed frame per second, plus live captions. New facts land in the case file below as they are seen.
+            Frames and captions analyzed every second; new facts land below.
           </p>
           <div className="mt-3">
             <LiveFeed incidentId={incident.id} onIncident={setIncident} onNotice={showToast} />
@@ -261,7 +261,10 @@ export default function SessionPage() {
         </aside>
       </div>
 
-      <div className="sticky bottom-0">
+      <div className="sticky bottom-0 z-30">
+        <div className="border-t border-stone-200 md:hidden">
+          <ActionBar onNotify={notify} onSafe={markSafe} onScript={draftScript} notifying={notifying} />
+        </div>
         <Composer
           disabled={sending}
           onText={(t) => sendText(t)}
@@ -285,7 +288,7 @@ export default function SessionPage() {
       )}
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-stone-900 px-4 py-2 text-sm text-white shadow-lg" role="status">
+        <div className="fixed bottom-36 left-1/2 z-50 -translate-x-1/2 rounded-full bg-stone-900 px-4 py-2 text-sm text-white shadow-lg md:bottom-24" role="status">
           {toast}
         </div>
       )}

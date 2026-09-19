@@ -53,3 +53,8 @@ body {
 input, textarea {
   caret-color: #92400e;
 }
+
+/* Bottom sticky bars clear the home indicator on notched phones. */
+.safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}

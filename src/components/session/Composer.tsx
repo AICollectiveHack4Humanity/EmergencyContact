@@ -19,7 +19,7 @@ export function Composer({
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="border-t border-stone-200 bg-white/95 p-3 backdrop-blur">
+    <div className="safe-bottom border-t border-stone-200 bg-white/95 p-3 backdrop-blur">
       <div className="mx-auto flex max-w-3xl items-end gap-2">
         <button
           aria-label="Share location"

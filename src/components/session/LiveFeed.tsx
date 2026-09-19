@@ -221,7 +221,7 @@ export function LiveFeed({
   return (
     <div>
       <div className="flex items-start gap-4">
-        <div className="relative w-36 shrink-0 overflow-hidden rounded-xl border border-stone-300 bg-stone-900 sm:w-44">
+        <div className="relative w-32 shrink-0 overflow-hidden rounded-xl border border-stone-300 bg-stone-900 sm:w-40">
           {/* Single persistent preview: hidden until the stream renders. */}
           <video
             ref={videoRef}

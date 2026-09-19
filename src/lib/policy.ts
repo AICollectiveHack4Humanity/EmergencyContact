@@ -8,11 +8,6 @@ export interface SuggestedAction {
   confirmRequired: boolean;
 }
 
-/** Short quiet reply used when the user cannot speak freely. */
-export function quietReply(): string {
-  return "Noted. You're not alone.";
-}
-
 /** Clamp Haven replies for silent_safety when the user cannot speak freely. */
 export function shapeReplyForPolicy(incident: Incident, reply: string): string {
   if (incident.type === "silent_safety" && incident.speakFreely === false) {
@@ -63,15 +58,4 @@ export function chooseActions(incident: Incident): SuggestedAction[] {
         { id: "safe", label: "I'm safe", tool: "safe", immediate: false, confirmRequired: true },
       ];
   }
-}
-
-/** Whether the policy layer allows an automatic notify without a fresh tap. */
-export function policyAllowsAutoNotify(incident: Incident): boolean {
-  // Never auto-notify on mental_health unless user pre-authorized.
-  if (incident.type === "mental_health") return false;
-  // Silent safety: only if pre-authorized AND user cannot speak freely.
-  if (incident.type === "silent_safety") {
-    return incident.notifyContactsOk && incident.speakFreely === false;
-  }
-  return false;
 }
