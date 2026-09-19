@@ -30,6 +30,7 @@ export async function POST(req: Request) {
   }
 
   let usedFallback = false;
+  let llmError: string | null = null;
   let result;
   const locForLlm = parsed.data.location ? { ...parsed.data.location, at: now } : undefined;
   try {
@@ -38,12 +39,17 @@ export async function POST(req: Request) {
       userText: parsed.data.text,
       location: locForLlm,
     });
-  } catch {
-    const { mockLlm } = await import("@/lib/adapters/llm");
+  } catch (e) {
+    const { mockLlm, sanitizeLlmError } = await import("@/lib/adapters/llm");
     result = await mockLlm.classifyAndExtract({ incident, userText: parsed.data.text, location: locForLlm });
     usedFallback = true;
+    llmError = sanitizeLlmError(e);
+    console.warn("[haven] Gemini call failed, fell back to mock:", llmError);
   }
-  if (llm.mode === "mock") usedFallback = false; // mock is the intended path, not a fallback
+  if (llm.mode === "mock") {
+    usedFallback = false; // mock is the intended path, not a fallback
+    llmError = null;
+  }
 
   // Merge classification.
   incident.type = result.type;
@@ -75,5 +81,5 @@ export async function POST(req: Request) {
   memoryStore.save(incident);
   await graph.upsertIncident(incident);
 
-  return NextResponse.json({ incident, reply, llmFallback: usedFallback, suggestedActions: result.suggestedActions });
+  return NextResponse.json({ incident, reply, llmFallback: usedFallback, llmError, suggestedActions: result.suggestedActions });
 }

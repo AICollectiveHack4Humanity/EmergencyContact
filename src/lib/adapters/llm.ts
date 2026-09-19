@@ -203,7 +203,18 @@ export const mockLlm: LlmAdapter = {
 // Human: npm i @google/genai, set GEMINI_API_KEY, keep mock as fallback.
 // ---------------------------------------------------------------------------
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+// Free-tier default (vision-capable). Override with GEMINI_MODEL=... if AI Studio
+// lists a newer free Flash id (e.g. gemini-3-flash-preview, gemini-2.5-flash-lite).
+export const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+
+/** Strip anything key-like before an error message ever reaches the client. */
+export function sanitizeLlmError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  return msg
+    .replace(/AIza[0-9A-Za-z_-]{10,}/g, "[redacted-key]")
+    .replace(/key=[^&\s]+/gi, "key=[redacted]")
+    .slice(0, 300);
+}
 const SYSTEM_PROMPT = `You are Haven, a silent crisis intake agent. Classify into silent_safety | mental_health | medical | followed | general with urgency low|medium|high|critical.
 Rules: silent_safety + cannot speak -> replies <=12 words, never say police were called, never auto-911. mental_health -> attach 988, stay present, do not notify police/contacts unless asked. Never invent evidence: unknown fields stay "unknown". Always return STRICT JSON with keys: type, urgency, speakFreely, summary, observations[{kind,text,confidence,source}], people[{name,role,notes}], reply, suggestedActions[].`;
 
@@ -235,14 +246,17 @@ export const geminiLlm: LlmAdapter = {
   async classifyAndExtract(input: ClassifyInput): Promise<ClassifyResult> {
     const key = process.env.GEMINI_API_KEY;
     if (!key) return mockLlm.classifyAndExtract(input);
+    // NOTE: errors propagate on purpose — the API route catches them, falls back
+    // to mock, and surfaces the reason to the UI (llmError) for debugging.
+    // INTEGRATION: Gemini generateContent lives here. Swap model id via GEMINI_MODEL.
+    const parts: Record<string, unknown>[] = [{ text: `${SYSTEM_PROMPT}\n\nIncident so far: ${JSON.stringify({ type: input.incident.type, urgency: input.incident.urgency, speakFreely: input.incident.speakFreely, summary: input.incident.summary })}\nUser text: ${input.userText ?? "(none)"}\nLocation: ${input.location ? JSON.stringify(input.location) : "unknown"}` }];
+    if (input.imageDataUrl) {
+      const m = input.imageDataUrl.match(/^data:(.*?);base64,(.*)$/);
+      if (m) parts.push({ inlineData: { mimeType: m[1], data: m[2] } });
+    }
+    let res: Response;
     try {
-      // INTEGRATION: Gemini generateContent lives here. Swap model id as needed.
-      const parts: Record<string, unknown>[] = [{ text: `${SYSTEM_PROMPT}\n\nIncident so far: ${JSON.stringify({ type: input.incident.type, urgency: input.incident.urgency, speakFreely: input.incident.speakFreely, summary: input.incident.summary })}\nUser text: ${input.userText ?? "(none)"}\nLocation: ${input.location ? JSON.stringify(input.location) : "unknown"}` }];
-      if (input.imageDataUrl) {
-        const m = input.imageDataUrl.match(/^data:(.*?);base64,(.*)$/);
-        if (m) parts.push({ inlineData: { mimeType: m[1], data: m[2] } });
-      }
-      const res = await fetch(
+      res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(key)}`,
         {
           method: "POST",
@@ -253,19 +267,20 @@ export const geminiLlm: LlmAdapter = {
           }),
         }
       );
-      if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
-      const json = (await res.json()) as {
-        candidates?: { content?: { parts?: { text?: string }[] } }[];
-      };
-      const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-      const parsed = tryParseStrictJson(text);
-      if (!parsed) throw new Error("Gemini returned non-JSON");
-      return parsed;
     } catch (e) {
-      console.warn("[haven] Gemini call failed, falling back to mock:", e);
-      const fallback = await mockLlm.classifyAndExtract(input);
-      return { ...fallback, reply: `${fallback.reply}` };
+      throw new Error(`Gemini ${GEMINI_MODEL}: network error (${e instanceof Error ? e.message : "fetch failed"}). Check connection / hotspot.`);
     }
+    if (!res.ok) {
+      const detail = (await res.text().catch(() => "")).slice(0, 200);
+      throw new Error(`Gemini ${GEMINI_MODEL}: HTTP ${res.status} ${detail}`);
+    }
+    const json = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+    const parsed = tryParseStrictJson(text);
+    if (!parsed) throw new Error(`Gemini ${GEMINI_MODEL}: returned non-JSON`);
+    return parsed;
   },
 
   async draftContactMessage(incident: Incident, contact: Person): Promise<string> {

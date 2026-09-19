@@ -104,7 +104,7 @@ export default function SessionPage() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? "send failed");
       setIncident(j.incident);
-      if (j.llmFallback) showToast("LLM fallback");
+      if (j.llmFallback) showToast(`LLM fallback${j.llmError ? `: ${j.llmError}` : ""}`);
     } catch {
       showToast("Message didn't send — try again.");
       setIncident(incident);

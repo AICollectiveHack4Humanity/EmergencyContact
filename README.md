@@ -32,6 +32,7 @@ Copy `.env.example` to `.env.local`. All secrets stay in `.env.local`, never com
 | Var | Effect |
 | --- | --- |
 | `GEMINI_API_KEY` | set → live Gemini 2.5 Flash; unset → smart mock LLM |
+| `GEMINI_MODEL` | optional override (default `gemini-2.5-flash`, free tier). If calls fail, the session toast shows the model + HTTP error |
 | `PHOTON_ENABLED=true` + `PHOTON_*` | live iMessage via Photon; otherwise mock outbox |
 | `FALKORDB_ENABLED=true` + `FALKORDB_*` | live FalkorDB graph; otherwise in-memory mock graph |
 | `CONTACT_1/2_NAME/PHONE` | prefilled demo contacts (Maya's sister Priya, advocate Jordan) |

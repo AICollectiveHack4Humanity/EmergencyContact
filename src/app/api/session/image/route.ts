@@ -23,12 +23,15 @@ export async function POST(req: Request) {
   if (parsed.data.location) incident.locations.push({ ...parsed.data.location, at: now });
 
   let result;
+  let llmError: string | null = null;
   const locForLlm = parsed.data.location ? { ...parsed.data.location, at: now } : undefined;
   try {
     result = await llm.classifyAndExtract({ incident, imageDataUrl: parsed.data.imageDataUrl, location: locForLlm });
-  } catch {
-    const { mockLlm } = await import("@/lib/adapters/llm");
+  } catch (e) {
+    const { mockLlm, sanitizeLlmError } = await import("@/lib/adapters/llm");
     result = await mockLlm.classifyAndExtract({ incident, imageDataUrl: parsed.data.imageDataUrl });
+    llmError = llm.mode === "mock" ? null : sanitizeLlmError(e);
+    if (llmError) console.warn("[haven] Gemini vision failed, fell back to mock:", llmError);
   }
 
   incident.type = result.type;
@@ -46,5 +49,5 @@ export async function POST(req: Request) {
 
   memoryStore.save(incident);
   await graph.upsertIncident(incident);
-  return NextResponse.json({ incident, reply: result.reply });
+  return NextResponse.json({ incident, reply: result.reply, llmError });
 }
