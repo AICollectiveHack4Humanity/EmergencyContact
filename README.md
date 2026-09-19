@@ -59,3 +59,18 @@ talk to adapters.
 
 Human finishes Gemini / Photon / FalkorDB using the integration steps in the adapter
 comments; do not block the UI on them — mock is the default happy path for the demo.
+
+## Live camera + perpetrator attribution
+
+- **Attribution**: clothing/injury observations link to who they describe. "He's wearing
+  a hoodie" → perpetrator (`Unknown adult male`); "my lip is split" → you. The fact rail
+  has a dedicated *Perpetrator clothing* section and the officer brief annotates entries
+  (`dark hoodie (perpetrator: Unknown adult male)`). Works in mock and Gemini paths
+  (the model is instructed via `aboutRole`).
+- **Live camera** (`● Live` button in session): `getUserMedia` preview, one analyzed
+  frame/sec via `POST /api/session/live-frame`, plus live captions via the Web Speech API
+  (Chrome/Edge; iOS Safari gets frames without captions). Frames merge silently into the
+  case (dedupe keeps repeat frames free); urgency escalation posts a system note.
+  On free-tier 429s the loop backs off automatically (up to 30s) instead of dying.
+  Note: sustained 1fps burns ~3600 req/hr against the ~1500/day free quota — use short
+  bursts for the demo.
