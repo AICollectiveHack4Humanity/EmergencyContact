@@ -1,12 +1,7 @@
-import { Suspense } from "react";
-import { StealthHome } from "@/components/stealth/StealthHomeClient";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Errands" };
+export const metadata = { title: "Haven" };
 
 export default function Home() {
-  return (
-    <Suspense>
-      <StealthHome />
-    </Suspense>
-  );
+  redirect("/session");
 }

@@ -31,7 +31,6 @@ export default function SettingsPage() {
   const router = useRouter();
   const [health, setHealth] = useState<Health | null>(null);
   const [outbox, setOutbox] = useState<OutboundNotice[]>([]);
-  const [skin, setSkin] = useState<"notes" | "weather">("notes");
   const [running, setRunning] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -44,18 +43,9 @@ export default function SettingsPage() {
       const o = await fetch("/api/outbox").then((r) => r.json());
       setOutbox(o.outbox ?? []);
     } catch { /* offline */ }
-    try {
-      const s = localStorage.getItem("haven:skin");
-      if (s === "weather" || s === "notes") setSkin(s);
-    } catch { /* ignore */ }
   };
 
   useEffect(() => { refresh(); }, []);
-
-  const setSkinChoice = (s: "notes" | "weather") => {
-    setSkin(s);
-    try { localStorage.setItem("haven:skin", s); } catch { /* ignore */ }
-  };
 
   const runDemo = async () => {
     setRunning(true);
@@ -94,8 +84,7 @@ export default function SettingsPage() {
         <section className="rounded-2xl border border-white/10 bg-[#22242b] p-5">
           <h2 className="text-xs uppercase tracking-widest text-stone-500">Demo controls</h2>
           <p className="mt-1 text-sm text-stone-400">
-            PIN <span className="font-mono text-stone-200">{process.env.NEXT_PUBLIC_DEMO_PIN ?? "2580"}</span>
-            {" · "}passphrase <span className="font-mono text-stone-200">“{process.env.NEXT_PUBLIC_PASSPHRASE ?? "weather looks bad"}”</span>
+            Demo PIN <span className="font-mono text-stone-200">{process.env.NEXT_PUBLIC_DEMO_PIN ?? "2580"}</span>
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button onClick={runDemo} disabled={running} className="min-h-[44px] rounded-full bg-[#d6c08a] px-5 text-sm font-semibold text-[#17181c] disabled:opacity-50">
@@ -116,22 +105,6 @@ export default function SettingsPage() {
             {process.env.CONTACT_2_NAME ?? "Jordan"} · <span className="font-mono">{process.env.CONTACT_2_PHONE ?? "+15555550102"}</span>
           </p>
           <p className="mt-2 text-xs text-stone-500">Set names + E.164 phones in .env.local (CONTACT_1_*, CONTACT_2_*). Prefilled for demo.</p>
-        </section>
-
-        <section className="rounded-2xl border border-white/10 bg-[#22242b] p-5">
-          <h2 className="text-xs uppercase tracking-widest text-stone-500">Stealth skin</h2>
-          <div className="mt-3 flex gap-2">
-            {(["notes", "weather"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setSkinChoice(s)}
-                aria-pressed={skin === s}
-                className={skin === s ? "min-h-[44px] rounded-full bg-[#d6c08a] px-5 text-sm font-semibold text-[#17181c]" : "min-h-[44px] rounded-full border border-white/15 px-5 text-sm text-stone-200"}
-              >
-                {s === "notes" ? "Notes" : "Weather"}
-              </button>
-            ))}
-          </div>
         </section>
 
         <section className="rounded-2xl border border-white/10 bg-[#22242b] p-5">

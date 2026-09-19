@@ -8,8 +8,8 @@ export interface SuggestedAction {
   confirmRequired: boolean;
 }
 
-/** Short stealth-safe reply used when the user cannot speak freely. */
-export function stealthReply(): string {
+/** Short quiet reply used when the user cannot speak freely. */
+export function quietReply(): string {
   return "Noted. You're not alone.";
 }
 

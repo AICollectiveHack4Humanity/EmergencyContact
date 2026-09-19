@@ -8,11 +8,9 @@ import { Composer } from "@/components/session/Composer";
 import { FactRail } from "@/components/session/FactRail";
 import { ActionBar } from "@/components/session/ActionBar";
 import { LiveFeed } from "@/components/session/LiveFeed";
-import { StealthToggle } from "@/components/session/StealthToggle";
 import { StatusPill } from "@/components/shared/StatusPill";
 import { MapPin } from "@/components/shared/MapPin";
 import { lastLocationLabel } from "@/lib/geo";
-import { NotesShell } from "@/components/stealth/NotesShell";
 
 const DEFAULT_PIN: GeoPoint = { lat: 37.7897, lng: -122.3972, label: "SoMa, San Francisco", at: new Date().toISOString() };
 
@@ -22,8 +20,6 @@ export default function SessionPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [notifying, setNotifying] = useState(false);
-  const [stealth, setStealth] = useState(false);
-  const [coverNote, setCoverNote] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [liveOpen, setLiveOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -193,32 +189,6 @@ export default function SessionPage() {
     );
   }
 
-  // Mid-crisis cover: facts hide, composer stays.
-  if (stealth) {
-    return (
-      <div className="fade-in">
-        <NotesShell
-          value={coverNote}
-          onChange={(v) => {
-            setCoverNote(v);
-            if (v.trim().toLowerCase() === (process.env.NEXT_PUBLIC_PASSPHRASE ?? "weather looks bad")) { /* stay covered */ }
-          }}
-          onSubmit={() => setCoverNote("")}
-          onTitleHold={() => setStealth(false)}
-          onMarginTripleTap={() => setStealth(false)}
-        />
-        <div className="fixed bottom-20 left-0 right-0 mx-auto max-w-md px-5">
-          <div className="rounded-2xl border border-white/10 bg-[#17181c]/95 p-3 backdrop-blur">
-            <Composer onText={(t) => sendText(t)} onPhoto={sendPhoto} onLocation={(l) => sendText(l ? `[location shared: ${l.lat.toFixed(4)}, ${l.lng.toFixed(4)}]` : "[location unavailable]", l)} />
-            <button onClick={() => setStealth(false)} className="mt-2 w-full rounded-full border border-white/15 py-2.5 text-sm text-stone-300">
-              Exit cover
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="fade-in flex min-h-dvh flex-col bg-[#17181c] text-stone-100">
       {/* Chrome */}
@@ -237,7 +207,6 @@ export default function SessionPage() {
             >
               ● Live
             </button>
-            <StealthToggle stealth={stealth} onToggle={() => setStealth(true)} />
             <a href="/settings" aria-label="Settings" className="min-h-[44px] min-w-[44px] rounded-full border border-white/15 px-3 py-2 text-center text-sm text-stone-300">⚙</a>
           </div>
         </div>
