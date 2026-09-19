@@ -204,8 +204,8 @@ export const mockLlm: LlmAdapter = {
 // ---------------------------------------------------------------------------
 
 // Free-tier default (vision-capable). Override with GEMINI_MODEL=... if AI Studio
-// lists a newer free Flash id (e.g. gemini-3-flash-preview, gemini-2.5-flash-lite).
-export const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+// lists a newer free Flash id (e.g. gemini-2.5-flash-lite).
+export const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-3.6-flash";
 
 /** Strip anything key-like before an error message ever reaches the client. */
 export function sanitizeLlmError(e: unknown): string {
@@ -248,7 +248,7 @@ export const geminiLlm: LlmAdapter = {
     if (!key) return mockLlm.classifyAndExtract(input);
     // NOTE: errors propagate on purpose — the API route catches them, falls back
     // to mock, and surfaces the reason to the UI (llmError) for debugging.
-    // INTEGRATION: Gemini generateContent lives here. Swap model id via GEMINI_MODEL.
+      // INTEGRATION: Gemini generateContent lives here. Model id comes from GEMINI_MODEL.
     const parts: Record<string, unknown>[] = [{ text: `${SYSTEM_PROMPT}\n\nIncident so far: ${JSON.stringify({ type: input.incident.type, urgency: input.incident.urgency, speakFreely: input.incident.speakFreely, summary: input.incident.summary })}\nUser text: ${input.userText ?? "(none)"}\nLocation: ${input.location ? JSON.stringify(input.location) : "unknown"}` }];
     if (input.imageDataUrl) {
       const m = input.imageDataUrl.match(/^data:(.*?);base64,(.*)$/);
