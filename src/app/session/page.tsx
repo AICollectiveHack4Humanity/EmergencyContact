@@ -10,6 +10,8 @@ import { ActionBar } from "@/components/session/ActionBar";
 import { LiveFeed } from "@/components/session/LiveFeed";
 import { StatusPill } from "@/components/shared/StatusPill";
 import { MapPin } from "@/components/shared/MapPin";
+import { SlidersIcon } from "@/components/shared/icons";
+import { CaseGraphSection } from "@/components/session/CaseGraphSection";
 import { lastLocationLabel } from "@/lib/geo";
 
 const DEFAULT_PIN: GeoPoint = { lat: 37.7897, lng: -122.3972, label: "SoMa, San Francisco", at: new Date().toISOString() };
@@ -21,7 +23,6 @@ export default function SessionPage() {
   const [sending, setSending] = useState(false);
   const [notifying, setNotifying] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [liveOpen, setLiveOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [script, setScript] = useState<string | null>(null);
 
@@ -176,38 +177,39 @@ export default function SessionPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-[#17181c]">
+      <div className="flex min-h-dvh items-center justify-center bg-stone-100">
         <p className="text-sm text-stone-500">Opening…</p>
       </div>
     );
   }
   if (!incident) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-[#17181c] p-6 text-center">
-        <p className="text-sm text-stone-400">No session. <a className="underline" href="/">Go back</a> or <a className="underline" href="/settings">open settings</a>.</p>
+      <div className="flex min-h-dvh items-center justify-center bg-stone-100 p-6 text-center">
+        <p className="text-sm text-stone-600">No session. <a className="underline" href="/">Go back</a> or <a className="underline" href="/settings">open settings</a>.</p>
       </div>
     );
   }
 
   return (
-    <div className="fade-in flex min-h-dvh flex-col bg-[#17181c] text-stone-100">
-      {/* Chrome */}
-      <header className="border-b border-white/10">
+    <div className="fade-in flex min-h-dvh flex-col bg-stone-100 text-stone-900">
+      <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="font-serif text-lg tracking-tight text-[#d6c08a]">Haven</span>
+            <span className="font-serif text-xl tracking-tight text-amber-900">Haven</span>
             <StatusPill urgency={incident.urgency} status={incident.status} />
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setLiveOpen((v) => !v)}
-              aria-pressed={liveOpen}
-              title="Live camera: one analyzed frame per second + live captions"
-              className={liveOpen ? "min-h-[44px] rounded-full bg-[#d6c08a] px-4 text-sm font-semibold text-[#17181c]" : "min-h-[44px] rounded-full border border-[#d6c08a]/50 px-4 text-sm text-[#d6c08a]"}
+              onClick={() => document.getElementById("live-camera")?.scrollIntoView({ behavior: "smooth" })}
+              title="Jump to the live camera feed"
+              className="flex min-h-[44px] items-center gap-2 rounded-full border border-stone-300 px-4 text-sm font-medium text-stone-800"
             >
-              ● Live
+              <span className="h-2 w-2 rounded-full bg-red-600" aria-hidden />
+              Live
             </button>
-            <a href="/settings" aria-label="Settings" className="min-h-[44px] min-w-[44px] rounded-full border border-white/15 px-3 py-2 text-center text-sm text-stone-300">⚙</a>
+            <a href="/settings" aria-label="Settings" className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-stone-300 px-3 py-2 text-stone-700">
+              <SlidersIcon />
+            </a>
           </div>
         </div>
         <div className="mx-auto max-w-5xl px-4 pb-2">
@@ -216,33 +218,46 @@ export default function SessionPage() {
         <ActionBar onNotify={notify} onSafe={markSafe} onBrief={() => router.push(`/brief/${incident.id}`)} onScript={draftScript} notifying={notifying} />
       </header>
 
-      {/* Split: transcript + fact rail */}
-      <div className="mx-auto flex w-full max-w-5xl flex-1 gap-0">
-        <main className="flex min-h-0 flex-1 flex-col">
-          {liveOpen && (
-            <div className="border-b border-white/10 px-4 py-3">
-              <LiveFeed incidentId={incident.id} onIncident={setIncident} onNotice={showToast} />
-            </div>
-          )}
+      <section aria-label="Live camera" id="live-camera" className="border-b border-stone-200 bg-white scroll-mt-32">
+        <div className="mx-auto max-w-5xl px-4 py-4">
+          <h2 className="text-lg font-semibold text-stone-900">Live camera</h2>
+          <p className="mt-0.5 text-sm text-stone-600">
+            One analyzed frame per second, plus live captions. New facts land in the case file below as they are seen.
+          </p>
+          <div className="mt-3">
+            <LiveFeed incidentId={incident.id} onIncident={setIncident} onNotice={showToast} />
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto flex w-full max-w-5xl flex-1 gap-6 px-0 md:px-4 md:py-4">
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white md:rounded-2xl md:border md:border-stone-200">
           <div className="max-h-[55dvh] flex-1 overflow-y-auto md:max-h-none">
             <Transcript messages={incident.messages} />
           </div>
-          {/* Facts sheet trigger (mobile) */}
           <button
             onClick={() => setSheetOpen((v) => !v)}
-            className="border-t border-white/10 px-4 py-3 text-left text-sm text-stone-300 md:hidden"
+            className="border-t border-stone-200 px-4 py-3 text-left text-sm font-medium text-stone-800 md:hidden"
             aria-expanded={sheetOpen}
           >
-            Facts · {incident.observations.length} {sheetOpen ? "▾" : "▴"}
+            Case file · {incident.observations.length} {sheetOpen ? "▾" : "▴"}
           </button>
           {sheetOpen && (
-            <div className="max-h-72 overflow-y-auto border-t border-white/10 md:hidden">
-              <FactRail incident={incident} />
+            <div className="max-h-96 overflow-y-auto border-t border-stone-200 md:hidden">
+              <CaseGraphSection incident={incident} />
+              <div className="border-t border-stone-200">
+                <FactRail incident={incident} />
+              </div>
             </div>
           )}
         </main>
-        <aside className="hidden w-80 shrink-0 overflow-y-auto border-l border-white/10 md:block">
-          <FactRail incident={incident} />
+        <aside className="hidden w-80 shrink-0 flex-col gap-6 overflow-y-auto md:flex">
+          <div className="rounded-2xl border border-stone-200 bg-white">
+            <CaseGraphSection incident={incident} />
+          </div>
+          <div className="rounded-2xl border border-stone-200 bg-white">
+            <FactRail incident={incident} />
+          </div>
         </aside>
       </div>
 
@@ -257,20 +272,20 @@ export default function SessionPage() {
 
       {script && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" role="dialog" aria-label="911 script">
-          <div className="w-full max-w-md rounded-2xl bg-[#22242b] p-5">
-            <h2 className="font-serif text-lg text-[#d6c08a]">Draft 911 script</h2>
-            <p className="mt-1 text-xs text-stone-500">Requires your explicit confirm. Haven never dials automatically.</p>
-            <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-black/30 p-3 text-sm text-stone-200">{script}</pre>
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <h2 className="font-serif text-lg text-amber-900">Draft 911 script</h2>
+            <p className="mt-1 text-xs text-stone-600">Requires your explicit confirm. Haven never dials automatically.</p>
+            <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-stone-100 p-3 text-sm text-stone-900">{script}</pre>
             <div className="mt-4 flex gap-2">
-              <button onClick={() => { navigator.clipboard?.writeText(script).catch(() => {}); showToast("Script copied."); }} className="min-h-[44px] flex-1 rounded-full bg-[#d6c08a] text-sm font-semibold text-[#17181c]">Copy</button>
-              <button onClick={() => setScript(null)} className="min-h-[44px] flex-1 rounded-full border border-white/15 text-sm text-stone-200">Close</button>
+              <button onClick={() => { navigator.clipboard?.writeText(script).catch(() => {}); showToast("Script copied."); }} className="min-h-[44px] flex-1 rounded-full bg-stone-900 text-sm font-semibold text-white">Copy</button>
+              <button onClick={() => setScript(null)} className="min-h-[44px] flex-1 rounded-full border border-stone-300 text-sm text-stone-800">Close</button>
             </div>
           </div>
         </div>
       )}
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-[#2a2d36] px-4 py-2 text-sm text-stone-200 shadow-lg" role="status">
+        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-stone-900 px-4 py-2 text-sm text-white shadow-lg" role="status">
           {toast}
         </div>
       )}

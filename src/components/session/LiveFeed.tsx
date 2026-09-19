@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Incident } from "@/lib/types";
+import { CameraIcon } from "@/components/shared/icons";
 
 const FRAME_MS = 1000; // analyze one frame per second
 const MAX_BACKOFF_MS = 30000;
@@ -200,33 +201,32 @@ export function LiveFeed({
         <div>
           <button
             onClick={start}
-            className="min-h-[44px] rounded-full border border-[#d6c08a]/50 px-4 text-sm text-[#d6c08a]"
+            className="flex min-h-[48px] items-center gap-2 rounded-full bg-stone-900 px-5 text-sm font-semibold text-white"
           >
-            ● Live camera
+            <CameraIcon className="h-5 w-5" />
+            Start live camera
           </button>
-          {error && <p className="mt-2 text-sm text-red-300" role="alert">{error}</p>}
+          {error && <p className="mt-2 text-sm text-red-700" role="alert">{error}</p>}
         </div>
       ) : (
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-3">
-          <div className="flex items-start gap-3">
-            <div className="relative w-28 shrink-0 overflow-hidden rounded-xl bg-black">
-              <video ref={videoRef} muted playsInline className="aspect-[3/4] w-full object-cover" aria-label="Live camera preview" />
-              <span className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[11px] text-red-300">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" aria-hidden /> LIVE
-              </span>
-            </div>
-            <div className="min-w-0 flex-1 text-sm">
-              <p className="text-stone-300">
-                Frame {frames} · +{facts} facts{slowed && <span className="text-[#d6c08a]"> · slowed (quota)</span>}
-              </p>
-              <p className="mt-1 text-xs text-stone-500">
-                {captionsLive ? "Listening + watching — facts populate live." : "Watching — live captions unavailable in this browser."}
-              </p>
-              {heard && <p className="mt-1.5 line-clamp-2 text-[13px] text-stone-400">Heard: “{heard}”</p>}
-              <button onClick={stop} className="mt-2 min-h-[44px] rounded-full border border-white/15 px-4 text-sm text-stone-200">
-                Stop camera
-              </button>
-            </div>
+        <div className="flex items-start gap-4">
+          <div className="relative w-36 shrink-0 overflow-hidden rounded-xl border border-stone-300 bg-stone-900 sm:w-44">
+            <video ref={videoRef} muted playsInline className="aspect-[3/4] w-full object-cover" aria-label="Live camera preview" />
+            <span className="absolute left-2 top-2 flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-white">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" aria-hidden /> LIVE
+            </span>
+          </div>
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="font-medium tabular-nums text-stone-900">
+              Frame {frames} · +{facts} facts{slowed && <span className="text-amber-800"> · slowed (quota)</span>}
+            </p>
+            <p className="mt-1 text-[13px] text-stone-600">
+              {captionsLive ? "Listening and watching — facts populate the case live." : "Watching — live captions unavailable in this browser."}
+            </p>
+            {heard && <p className="mt-1.5 line-clamp-2 text-[13px] text-stone-600">Heard: “{heard}”</p>}
+            <button onClick={stop} className="mt-2 min-h-[44px] rounded-full border border-stone-300 px-4 text-sm font-medium text-stone-800">
+              Stop camera
+            </button>
           </div>
         </div>
       )}

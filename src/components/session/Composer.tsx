@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { GeoPoint } from "@/lib/types";
+import { PinIcon, PhotoIcon } from "@/components/shared/icons";
 
 export function Composer({
   onText,
@@ -18,7 +19,7 @@ export function Composer({
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="border-t border-white/10 bg-[#17181c]/95 p-3 backdrop-blur">
+    <div className="border-t border-stone-200 bg-white/95 p-3 backdrop-blur">
       <div className="mx-auto flex max-w-3xl items-end gap-2">
         <button
           aria-label="Share location"
@@ -32,17 +33,17 @@ export function Composer({
               );
             } else onLocation(undefined);
           }}
-          className="min-h-[44px] min-w-[44px] rounded-full border border-white/15 px-3 text-lg text-stone-200 disabled:opacity-40"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-stone-300 text-stone-700 disabled:opacity-40"
         >
-          ⌖
+          <PinIcon />
         </button>
         <button
           aria-label="Send photo"
           disabled={disabled}
           onClick={() => fileRef.current?.click()}
-          className="min-h-[44px] min-w-[44px] rounded-full border border-white/15 px-3 text-lg text-stone-200 disabled:opacity-40"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-stone-300 text-stone-700 disabled:opacity-40"
         >
-          ◉
+          <PhotoIcon />
         </button>
         <input
           ref={fileRef}
@@ -76,12 +77,12 @@ export function Composer({
             onChange={(e) => setText(e.target.value)}
             placeholder="Type quietly…"
             autoComplete="off"
-            className="min-h-[44px] flex-1 rounded-full border border-white/15 bg-white/5 px-4 text-[16px] text-stone-100 outline-none placeholder:text-stone-500 focus:border-[#d6c08a]/50"
+            className="min-h-[44px] flex-1 rounded-full border border-stone-300 bg-stone-100 px-4 text-[16px] text-stone-900 outline-none placeholder:text-stone-500 focus:border-amber-800"
           />
           <button
             type="submit"
             disabled={disabled || !text.trim()}
-            className="min-h-[44px] rounded-full bg-[#d6c08a] px-5 font-medium text-[#17181c] disabled:opacity-40"
+            className="min-h-[44px] rounded-full bg-stone-900 px-5 font-medium text-white disabled:opacity-40"
           >
             Send
           </button>

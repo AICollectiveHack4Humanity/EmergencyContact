@@ -9,7 +9,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3 py-1.5 text-sm">
       <span className="shrink-0 text-stone-500">{label}</span>
-      <span className="text-right text-stone-200">{value}</span>
+      <span className="text-right font-medium text-stone-900">{value}</span>
     </div>
   );
 }
@@ -34,11 +34,11 @@ export function FactRail({ incident }: { incident: Incident }) {
   };
 
   return (
-    <div className="space-y-5 p-4 text-sm">
+    <div className="space-y-6 p-4 text-sm">
       <div>
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-500">Case</h3>
         <StatusPill urgency={incident.urgency} status={incident.status} />
-        <div className="mt-2 divide-y divide-white/5">
+        <div className="mt-2 divide-y divide-stone-200">
           <Row label="Type" value={incident.type.replace("_", " ")} />
           <Row label="Speak freely?" value={incident.speakFreely ? "Yes" : "No"} />
           <Row label="Contacts OK" value={incident.notifyContactsOk ? "Yes" : "No"} />
@@ -48,20 +48,20 @@ export function FactRail({ incident }: { incident: Incident }) {
         <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-stone-500">People</h3>
         {people.length === 0 && <p className="text-stone-500">Unknown</p>}
         {people.map((p) => (
-          <p key={p.id} className="py-0.5 text-stone-200">
+          <p key={p.id} className="py-0.5 text-stone-900">
             {p.name} <span className="text-stone-500">· {p.role}</span>
           </p>
         ))}
       </div>
       <div>
         <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-stone-500">Perpetrator clothing</h3>
-        {perpClothing.length === 0 ? <p className="text-stone-500">Unknown</p> : perpClothing.map((o) => <p key={o.id} className="py-0.5 text-stone-200">{o.text}</p>)}
+        {perpClothing.length === 0 ? <p className="text-stone-500">Unknown</p> : perpClothing.map((o) => <p key={o.id} className="py-0.5 font-medium text-stone-900">{o.text}</p>)}
       </div>
       {otherClothing.length > 0 && (
         <div>
           <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-stone-500">Other clothing sightings</h3>
           {otherClothing.map((o) => (
-            <p key={o.id} className="py-0.5 text-stone-200">
+            <p key={o.id} className="py-0.5 text-stone-900">
               {o.text}
               {labelFor(o.aboutPersonId) && <span className="text-stone-500">{labelFor(o.aboutPersonId)}</span>}
             </p>
@@ -70,7 +70,7 @@ export function FactRail({ incident }: { incident: Incident }) {
       )}
       <div>
         <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-stone-500">Injuries</h3>
-        {injuries.length === 0 ? <p className="text-stone-500">Unknown</p> : injuries.map((o) => <p key={o.id} className="py-0.5 text-stone-200">{o.text}</p>)}
+        {injuries.length === 0 ? <p className="text-stone-500">Unknown</p> : injuries.map((o) => <p key={o.id} className="py-0.5 text-stone-900">{o.text}</p>)}
       </div>
       <div>
         <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-stone-500">Location trail</h3>
@@ -85,7 +85,7 @@ export function FactRail({ incident }: { incident: Incident }) {
           <p className="text-stone-500">None yet</p>
         ) : (
           incident.notices.map((n) => (
-            <p key={n.id} className="py-0.5 text-stone-200">
+            <p key={n.id} className="py-0.5 text-stone-900">
               {n.toName} <span className="text-stone-500">· {n.status}</span>
             </p>
           ))
