@@ -1,31 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Incident } from "@/lib/types";
 import { CopyIcon } from "@/components/shared/icons";
 
 /**
- * Case graph section: what is stored and where, so an authority can look the
+ * Case section: what is stored and where, so an authority can look the
  * case up later. Sections, not nested cards: one heading, data rows, actions.
  */
 export function CaseGraphSection({ incident }: { incident: Incident }) {
-  const [graphMode, setGraphMode] = useState<"live" | "mock" | null>(null);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/health")
-      .then((r) => r.json())
-      .then((h) => {
-        if (!cancelled) setGraphMode(h.falkordb === "live" ? "live" : "mock");
-      })
-      .catch(() => {
-        if (!cancelled) setGraphMode("mock");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const copyId = async () => {
     try {
@@ -39,20 +23,14 @@ export function CaseGraphSection({ incident }: { incident: Incident }) {
 
   return (
     <div className="p-4 text-sm">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">Case graph</h3>
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">Case file</h3>
       <p className="mt-1 text-[13px] leading-snug text-stone-600">
-        Every fact above is stored as a linked case record for authority lookup.
+        Every fact above is stored in this case for authority lookup.
       </p>
       <p className="mt-2">
-        {graphMode === "live" ? (
-          <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-900">
-            FalkorDB · Connected
-          </span>
-        ) : (
-          <span className="inline-flex items-center rounded-full bg-stone-200 px-2.5 py-0.5 text-xs font-medium text-stone-600">
-            {graphMode === null ? "Checking store…" : "Local store · FalkorDB on deploy"}
-          </span>
-        )}
+        <span className="inline-flex items-center rounded-full bg-stone-200 px-2.5 py-0.5 text-xs font-medium text-stone-600">
+          Saved locally
+        </span>
       </p>
       <dl className="mt-2 divide-y divide-stone-200">
         <div className="flex justify-between py-1.5">
@@ -89,8 +67,16 @@ export function CaseGraphSection({ incident }: { incident: Incident }) {
         href={`/brief/${incident.id}`}
         className="mt-2 inline-block min-h-[44px] rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white"
       >
-        Open responder briefing
+        Open case brief
       </a>
+      <div>
+        <a
+          href="/brief/demo"
+          className="mt-2 inline-block min-h-[44px] rounded-full border border-stone-300 px-5 py-2.5 text-sm font-medium text-stone-800"
+        >
+          Open demo brief
+        </a>
+      </div>
     </div>
   );
 }

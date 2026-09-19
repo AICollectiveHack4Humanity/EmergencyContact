@@ -37,8 +37,8 @@ that attributes every fact to the right person.
 - Mobile-first web app; demos run on a laptop but must work in an iPhone viewport.
 - Built and evaluated at a 1-day humanity hackathon; judge demo path is a first-class
   workflow (`/settings` → Run judge demo → responder briefing, zero keys required).
-- Operates on mock adapters by default; real providers (Gemini, Photon iMessage,
-  FalkorDB) are integration seams enabled by env vars, finished by a human later.
+- Operates with a live Gemini model when keyed, otherwise a smart mock; messaging
+  and case storage are local-only (outbox + in-memory store).
 - Live camera analysis runs at ~1 frame/sec with live captions where the browser
   allows; free-tier quotas require short bursts and automatic backoff.
 
@@ -55,8 +55,7 @@ that attributes every fact to the right person.
   mental-health path defaults to 988 / stay-with-them, never police or surprise
   contact notify; unknown fields stay `unknown` and render as "Unknown" — evidence
   is never invented.
-- Undecided: real Photon iMessage wiring, live FalkorDB deployment, multi-incident
-  responder queue, authentication beyond the demo PIN (`2580`).
+- Undecided: multi-incident responder queue, authentication beyond the demo PIN (`2580`).
 
 ## Brand Commitments
 

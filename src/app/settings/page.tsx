@@ -6,8 +6,7 @@ import type { OutboundNotice } from "@/lib/types";
 
 interface Health {
   gemini: "live" | "mock";
-  photon: "live" | "mock";
-  falkordb: "live" | "mock";
+  store: "local";
 }
 
 function AdapterRow({ name, mode }: { name: string; mode: "live" | "mock" | undefined }) {
@@ -111,10 +110,9 @@ export default function SettingsPage() {
           <h2 className="text-xs uppercase tracking-widest text-stone-500">Adapters</h2>
           <div className="divide-y divide-white/5">
             <AdapterRow name="Gemini (LLM)" mode={health?.gemini} />
-            <AdapterRow name="Photon (iMessage)" mode={health?.photon} />
-            <AdapterRow name="FalkorDB (graph)" mode={health?.falkordb} />
+            <AdapterRow name="Case store (local)" mode={health ? "mock" : undefined} />
           </div>
-          <p className="mt-2 text-xs text-stone-500">Read from /api/health. Mock is the default happy path — set keys to go live.</p>
+          <p className="mt-2 text-xs text-stone-500">Read from /api/health. Set GEMINI_API_KEY to go live.</p>
         </section>
 
         <section className="rounded-2xl border border-white/10 bg-[#22242b] p-5">

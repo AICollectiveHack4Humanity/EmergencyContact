@@ -29,18 +29,9 @@ export async function POST(req: Request) {
   const sent = [];
   for (const c of contacts) {
     const draft = await llm.draftContactMessage(incident, c);
-    try {
-      // INTEGRATION: Photon send happens here (via messaging adapter).
-      const notice = await messaging.notifyContact({ toName: c.name, toPhone: c.phone!, body: draft, location: loc });
-      incident.notices.push(notice);
-      sent.push(notice);
-    } catch (e) {
-      // Photon misconfigured at runtime: fall back to mock so the demo survives.
-      const { mockMessaging } = await import("@/lib/adapters/messaging");
-      const notice = await mockMessaging.notifyContact({ toName: c.name, toPhone: c.phone!, body: draft, location: loc });
-      incident.notices.push({ ...notice, status: "failed" });
-      sent.push({ ...notice, status: "failed" as const, body: `${notice.body}\n[photon error: ${e instanceof Error ? e.message : "send failed"}]` });
-    }
+    const notice = await messaging.notifyContact({ toName: c.name, toPhone: c.phone!, body: draft, location: loc });
+    incident.notices.push(notice);
+    sent.push(notice);
   }
   incident.messages.push({ id: `m_${Date.now().toString(36)}`, role: "system", text: `Notified ${sent.map((s) => s.toName).join(", ")} (${messaging.mode}).`, at: now });
   memoryStore.save(incident);

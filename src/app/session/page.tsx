@@ -214,7 +214,7 @@ export default function SessionPage() {
           <MapPin label={`Last location · ${lastLocationLabel(incident.locations)}`} />
         </div>
         <div className="hidden md:block">
-          <ActionBar onNotify={notify} onSafe={markSafe} onScript={draftScript} notifying={notifying} />
+          <ActionBar onNotify={notify} onSafe={markSafe} onScript={draftScript} onBrief={() => { if (incident) window.location.href = `/brief/${incident.id}`; }} notifying={notifying} />
         </div>
       </header>
 
@@ -263,7 +263,7 @@ export default function SessionPage() {
 
       <div className="sticky bottom-0 z-30">
         <div className="border-t border-stone-200 md:hidden">
-          <ActionBar onNotify={notify} onSafe={markSafe} onScript={draftScript} notifying={notifying} />
+          <ActionBar onNotify={notify} onSafe={markSafe} onScript={draftScript} onBrief={() => { if (incident) window.location.href = `/brief/${incident.id}`; }} notifying={notifying} />
         </div>
         <Composer
           disabled={sending}

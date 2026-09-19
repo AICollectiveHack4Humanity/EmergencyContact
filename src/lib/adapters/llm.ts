@@ -147,18 +147,20 @@ export const mockLlm: LlmAdapter = {
       people.push({ name: "Unknown adult male", role: "aggressor", notes: "Linked from a clothing description; identity unknown." });
     }
     // Threats and important phrases (heard speech in live mode, typed quotes otherwise).
-    const threatWords = ["kill", "die", "dead", "gun", "knife", "shoot", "stab", "hurt you", "shut up", "don't move", "dont move", "don't scream", "dont scream", "i'll find you", "ill find you"];
-    for (const w of threatWords) {
-      if (text.includes(w)) {
-        observations.push({
-          kind: "quote",
-          text: `Heard threat: "${(input.userText ?? "").trim().slice(0, 140)}"`,
-          confidence: 0.8,
-          source: input.live ? "audio" : "text",
-          aboutRole: personCue && !selfCue ? "aggressor" : undefined,
-        });
-        break; // one threat quote per message; dedupe keeps repeats free
-      }
+    // Single words match on word boundaries only ("hoodie" must not match "die").
+    const threatWordHit = /\b(kill|killing|die|dying|dead|gun|knife|shoot|shot|stab|stabbed)\b/.test(text);
+    const threatPhraseHit = [
+      "hurt you", "shut up", "don't move", "dont move", "don't scream", "dont scream",
+      "i'll find you", "ill find you", "i will find you", "you're dead", "you are dead",
+    ].some((p) => text.includes(p));
+    if (threatWordHit || threatPhraseHit) {
+      observations.push({
+        kind: "quote",
+        text: `Heard threat: "${(input.userText ?? "").trim().slice(0, 140)}"`,
+        confidence: 0.8,
+        source: input.live ? "audio" : "text",
+        aboutRole: personCue && !selfCue ? "aggressor" : undefined,
+      });
     }
     if (text.includes("car ") || text.includes("van ") || text.includes("license") || text.includes("plate")) {
       observations.push({ kind: "vehicle", text: input.userText?.slice(0, 140) ?? "Vehicle mentioned.", confidence: 0.6, source: "text" });

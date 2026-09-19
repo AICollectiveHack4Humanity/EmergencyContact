@@ -7,11 +7,13 @@ export function ActionBar({
   onNotify,
   onSafe,
   onScript,
+  onBrief,
   notifying,
 }: {
   onNotify: () => void;
   onSafe: () => void;
   onScript: () => void;
+  onBrief: () => void;
   notifying?: boolean;
 }) {
   const [confirmNotify, setConfirmNotify] = useState(false);
@@ -41,6 +43,9 @@ export function ActionBar({
         </button>
         <button onClick={onSafe} className="min-h-[44px] rounded-full border border-green-700 px-4 text-sm font-medium text-green-800">
           I&apos;m safe
+        </button>
+        <button onClick={onBrief} className="min-h-[44px] rounded-full border border-stone-300 px-4 text-sm text-stone-800">
+          Case brief
         </button>
       </div>
     </div>

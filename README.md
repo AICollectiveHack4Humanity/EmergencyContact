@@ -33,27 +33,14 @@ Copy `.env.example` to `.env.local`. All secrets stay in `.env.local`, never com
 | `CONTACT_1/2_NAME/PHONE` | prefilled demo contacts (Maya's sister Priya, advocate Jordan) |
 | `NEXT_PUBLIC_DEMO_PIN` | demo PIN shown in settings |
 
-## How mocks work
+## How it works
 
-Every external system goes through `src/lib/adapters/*` behind one barrel
-(`src/lib/adapters/index.ts`): env vars are the only switch. UI and API routes only
-talk to adapters.
-
-- **LLM** (`llm.ts`): `mockLlm` handles code words (`weather looks bad`, `can't talk`,
-  `he's here`), 988/mental-health, followed/BART, medical keywords, photo extracts —
-  never lorem ipsum. `geminiLlm` calls the configured Flash model with strict JSON and
-  falls back to mock with an "LLM fallback" toast.
-- **Messaging** (`messaging.ts`): mock logs + in-memory outbox (visible in Settings).
-  Photon tries `spectrum-ts` then `@photon-ai/advanced-imessage` (`npm i spectrum-ts`,
-  credentials from the Photon dashboard). Every contact message carries the
-  do-not-call header + live location + maps link.
-- **Graph** (`graph.ts`): mock persists in `src/lib/store/memory.ts` but still returns
-  a Cypher preview for the briefing page. FalkorDB (`npm i falkordb`,
-  `docker run -p 6379:6379 falkordb/falkordb`) runs the real upserts/queries and falls
-  back to mock with a yellow "graph fallback" pill.
-
-Human finishes Gemini / Photon / FalkorDB using the integration steps in the adapter
-comments; do not block the UI on them — mock is the default happy path for the demo.
+The only live external system is Gemini (`GEMINI_API_KEY` set → live Flash model,
+unset → smart mock LLM that handles code words, 988/mental-health, followed/BART,
+medical keywords, and photo extracts). Everything else is local: outbound notices
+land in an in-memory outbox (visible in Settings) and the case store persists in
+`src/lib/store/memory.ts`. Every contact message carries the do-not-call header +
+live location + maps link, and the briefing page shows the case query.
 
 ## Live camera + perpetrator attribution
 
